@@ -6,6 +6,8 @@ extern "C" {
 
 void BallSetup();
 void UseBallSensor();
+void PIO_UseBallSensor();
+void Interrupt_UseBallSensor();
 
 #ifdef __cplusplus
 }
