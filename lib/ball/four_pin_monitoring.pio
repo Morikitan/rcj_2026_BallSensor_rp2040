@@ -1,4 +1,0 @@
-.program four_pin_monitoring
-.wrap_target
-    in pins, 4;
-.wrap

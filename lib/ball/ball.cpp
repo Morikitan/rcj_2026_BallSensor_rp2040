@@ -4,13 +4,16 @@
 #include "hardware/gpio.h"
 #include "stdio.h"
 #include "hardware/pio.h"
-#include "four_pin_monitoring.pio.h"
+#include "two_pin_monitoring.pio.h"
 
-PIO pio = pio0;
-uint offset,sm = 0;
+uint32_t offset0,offset1,sm = 0;
+uint32_t pretime[8] = {0,0,0,0,0,0,0,0};
+uint32_t data;
 
 //ボールセンサーの初期化
 void BallSetup(){
+    volatile int pulse[8] = {0,0,0,0,0,0,0,0};
+
     gpio_init(Sensorpin0); gpio_init(Sensorpin1);
     gpio_init(Sensorpin2); gpio_init(Sensorpin3);
     gpio_init(Sensorpin4); gpio_init(Sensorpin5);
@@ -29,20 +32,32 @@ void BallSetup(){
     gpio_set_dir(Sensorpin14,GPIO_IN); gpio_set_dir(Sensorpin15,GPIO_IN);
     
     //four_pin_monitoringという名のプログラムをPIOの命令メモリに配置する
-    offset = pio_add_program(pio,&four_pin_monitoring_program);
+    offset0 = pio_add_program(pio0,&four_pin_monitoring_program);
+    offset1 = pio_add_program(pio1,&four_pin_monitoring_program);
 
     //pioの各ステートマシンの初期設定
-    FourPinMonitoringInit(pio,0,offset,Sensorpin0);
-    FourPinMonitoringInit(pio,1,offset,Sensorpin4);
-    FourPinMonitoringInit(pio,2,offset,Sensorpin8);
-    FourPinMonitoringInit(pio,3,offset,Sensorpin12);
+    TwoPinMonitoringInit(pio0,0,offset0,Sensorpin0);
+    TwoPinMonitoringInit(pio0,1,offset0,Sensorpin2);
+    TwoPinMonitoringInit(pio0,2,offset0,Sensorpin4);
+    TwoPinMonitoringInit(pio0,3,offset0,Sensorpin6);
+    TwoPinMonitoringInit(pio1,0,offset1,Sensorpin8);
+    TwoPinMonitoringInit(pio1,1,offset1,Sensorpin10);
+    TwoPinMonitoringInit(pio1,2,offset1,Sensorpin12);
+    TwoPinMonitoringInit(pio1,3,offset1,Sensorpin14);
 }
 
 //ボールセンサー(赤外線センサー)を使う。
 void UseBallSensor(){
     for(int sm = 0;sm <= 3;sm++){
         //pioのRX FIFOに何かがあるときだけ処理を行う。
-        if (!pio_sm_is_rx_fifo_empty(pio, sm)) {
+        if (!pio_sm_is_rx_fifo_empty(pio0, sm)) {
+            //RX FIFOからデータを受け取る。
+            data = pio_sm_get(pio0,sm);
+        }
+    }
+    for(int sm = 0;sm <= 3;sm++){
+        //pioのRX FIFOに何かがあるときだけ処理を行う。
+        if (!pio_sm_is_rx_fifo_empty(pio1, sm)) {
 
         }
     }
@@ -52,9 +67,9 @@ void UseBallSensor(){
 //
 //pio : pio0かpio1がある。今回はpio0。
 //sm : ステートマシン。0～3の4つある。
-//offset : プログラムの開始位置
+//offset : プログラムの開始位置ビット(あまり気にしなくてよい)
 //FrontPin : 先頭のピン。3を選ぶと、3,4,5,6のピンを監視する。
-void FourPinMonitoringInit(PIO pio, uint32_t sm, uint32_t offset,uint32_t FrontPin){
+void TwoPinMonitoringInit(PIO pio, uint32_t sm, uint32_t offset,uint32_t FrontPin){
     //配置したプログラムの初期設定を取得する
     pio_sm_config c = four_pin_monitoring_program_get_default_config(offset);
     //連続したFrontPin～FrontPin+3 のピンをin pins命令の対象に設定

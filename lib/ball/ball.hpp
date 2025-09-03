@@ -8,7 +8,7 @@ extern "C" {
 
 void BallSetup();
 void UseBallSensor();
-void FourPinMonitoringInit(PIO pio, uint32_t sm, uint32_t offset,uint32_t FrontPin);
+void TwoPinMonitoringInit(PIO pio, uint32_t sm, uint32_t offset,uint32_t FrontPin);
 
 #ifdef __cplusplus
 }

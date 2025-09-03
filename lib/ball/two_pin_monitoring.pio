@@ -1,0 +1,8 @@
+.program four_pin_monitoring
+; xを1つ目のピンの時間を入れる変数、yを2つ目のピンの時間を入れる変数としている。
+.wrap_target
+    in pins, 2                  ; 2つのピンがHIGHかLOWかを取得する
+    set x, 0                    ; xを0にする。
+count_high_low:
+    in pins, 2                  ; 2つのピンがHIGHかLOWかを取得する          
+.wrap
