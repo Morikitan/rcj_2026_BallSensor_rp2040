@@ -1,15 +1,11 @@
 .program four_pin_monitoring
-; xを1つ目のピンの時間を入れる変数、yを2つ目のピンの時間を入れる変数としている。
+; xを計測した時間を入れる変数
 .wrap_target
-    ;初期設定を行う
-    set x, 0                    ; xを0にする
-    set y, 0                    ; yを0にする
-count_low_low:
-    in pins, 2                  ; 2つのピンがHIGHかLOWかを取得する
-count_high_low:
-    in pins, 2                  ; 2つのピンがHIGHかLOWかを取得する
-count_low_high:
-    in pins, 2                  ; 2つのピンがHIGHかLOWかを取得する
-count_high_high:
-    in pins, 2                  ; 2つのピンがHIGHかLOWかを取得する
+    set X, 0                    ; xを0にする
+    wait 1 pin 0                ; 指定されたピンがHIGHになるまで待つ
+count_high:
+    in null, 32                 ; ISRをクリア
+    in pins, 1                  ; 指定されたピンがHIGHかLOWかをISRに取得する
+    mov X, Y
+    ;jmp
 .wrap
