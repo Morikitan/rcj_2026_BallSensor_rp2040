@@ -12,7 +12,7 @@ uint32_t data;
 
 //ボールセンサーの初期化
 void BallSetup(){
-    volatile int pulse[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+    volatile uint16_t pulse[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
     gpio_init(Sensorpin0); gpio_init(Sensorpin1);
     gpio_init(Sensorpin2); gpio_init(Sensorpin3);
@@ -133,7 +133,12 @@ void PIOPinMonitoringInit(PIO pio, uint32_t sm, uint32_t offset,uint32_t pin){
 void BallSensorFallOrRise(uint gpio, uint32_t events){
     if(events == GPIO_IRQ_EDGE_FALL){
         //HIGHからLOWの処理
-        pulse[gpio - 6] = timer_hw->timerawl - pretime[gpio - 6];
+        if(timer_hw->timerawl - pretime[gpio - 6] > 65535){
+            //オーバーフローを防止する
+            pulse[gpio - 6] = 65535;
+        }else{
+            pulse[gpio - 6] = timer_hw->timerawl - pretime[gpio - 6];
+        }
     }else{
         //LOWからHIGHの処理
         pretime[gpio - 6] = timer_hw->timerawl;

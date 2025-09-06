@@ -19,7 +19,7 @@
 #define Sensorpin13 3
 #define Sensorpin14 4
 #define Sensorpin15 5
-extern volatile int pulse[8];
+extern volatile uint16_t pulse[16];
 
 //I2C通信
 #define SDApin 0
