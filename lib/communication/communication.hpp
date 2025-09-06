@@ -1,7 +1,6 @@
 #pragma once
 
 #include "i2c_slave.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif

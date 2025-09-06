@@ -5,6 +5,8 @@
 #include "stdio.h"
 #include "hardware/pio.h"
 #include "pin_monitoring.pio.h"
+#include "pico/multicore.h"
+#include "pico/sync.h"
 
 uint32_t offset0,offset1,sm = 0;
 uint32_t pretime[8] = {0,0,0,0,0,0,0,0};
@@ -12,7 +14,8 @@ uint32_t data;
 
 //ボールセンサーの初期化
 void BallSetup(){
-    volatile uint16_t pulse[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+    spin_lock_unsafe_blocking(lock);
+    spin_unlock_unsafe(lock);
 
     gpio_init(Sensorpin0); gpio_init(Sensorpin1);
     gpio_init(Sensorpin2); gpio_init(Sensorpin3);
@@ -133,12 +136,14 @@ void PIOPinMonitoringInit(PIO pio, uint32_t sm, uint32_t offset,uint32_t pin){
 void BallSensorFallOrRise(uint gpio, uint32_t events){
     if(events == GPIO_IRQ_EDGE_FALL){
         //HIGHからLOWの処理
+        spin_lock_unsafe_blocking(lock);
         if(timer_hw->timerawl - pretime[gpio - 6] > 65535){
             //オーバーフローを防止する
             pulse[gpio - 6] = 65535;
         }else{
             pulse[gpio - 6] = timer_hw->timerawl - pretime[gpio - 6];
         }
+        spin_unlock_unsafe(lock);
     }else{
         //LOWからHIGHの処理
         pretime[gpio - 6] = timer_hw->timerawl;

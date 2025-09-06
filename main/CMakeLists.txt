@@ -20,5 +20,5 @@ pico_add_extra_outputs(main)
 target_include_directories(main PRIVATE ../lib)
 
 # Add the standard library to the build
-target_link_libraries(main pico_stdlib hardware_i2c pico_multicore)
+target_link_libraries(main pico_stdlib hardware_i2c pico_multicore pico_sync)
 target_link_libraries(main ball communication)

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "hardware/sync.h" 
 //2つのコアで共有の変数にはvolatileをつける
 
 //赤外線センサ
@@ -24,3 +25,6 @@ extern volatile uint16_t pulse[16];
 //I2C通信
 #define SDApin 0
 #define SCLpin 1
+
+//マルチコア
+extern spin_lock_t *lock;
