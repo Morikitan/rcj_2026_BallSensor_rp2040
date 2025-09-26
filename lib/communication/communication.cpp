@@ -17,7 +17,7 @@ void I2CSetup(){
     gpio_set_function(SCLpin,GPIO_FUNC_I2C);
     //外部プルアップをする
     i2c_slave_init(i2c0,0x42,&i2c_slave_handler);
-    i2c_init(i2c0,100000);
+    i2c_init(i2c0,115200);
 }
 
 void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event){
