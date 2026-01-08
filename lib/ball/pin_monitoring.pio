@@ -1,20 +1,19 @@
 .program pin_monitoring
-; xはHIGHかLOWかを入れる変数。Yは計測したい時間を入れる変数
 .wrap_target
-    set X, 0                    ; xを0にする
-    set pindirs, 0              ; ピンを出力にする
-count_low:
-    pull block                  ; CPUから0xFFFFFFFFを受け取る
-    mov Y, ISR                  ; 0xFFFFFFFFをYに移動する
-    wait 1 pin 0                ; 指定されたピンがHIGHになるまで待つ
-count_high:
-    in null, 32                 ; ISRをクリア
-    in pins, 1                  ; 指定されたピンがHIGHかLOWかをISRに取得する
-    mov X, ISR                  ; ISRの中身をXに移す
-    jmp !X put_result           ; Xが0(指定されたピンがLOW)なら結果を出力する
-    jmp Y-- count_high          ; Yを1減らしてcount_highの最初に戻る
-put_result:
-    mov OSR, Y                  ; Yの値をOSRに移す
-    push block                  ; 時間の測定結果を出力
-    jmp count_low               ; count_lowにもどる
+    pull block          ; OSRに 0xFFFFFFFF を取得
+    mov Y, OSR          ; Yにセット
+    
+    wait 1 pin 0        ; ボール検知(HIGH)まで待機 
+
+count_loop:
+    mov ISR, null       ; ISRをリセット
+    in pins, 1          ; 現在のピン状態を1bit取得
+    mov X, ISR          ; Xにコピー
+    
+    jmp !X stop_count    ; ピンが1(HIGH)になったら計測終了
+    jmp Y-- count_loop  ; 0(LOW)の間はカウントダウンしてループ
+
+stop_count:
+    mov ISR, Y          ; 残りカウントYをISRへ
+    push noblock        ; 【重要】FIFOがいっぱいでも止まらないようにする
 .wrap

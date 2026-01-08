@@ -9,14 +9,11 @@
 #include "pico/sync.h"
 
 uint32_t offset0,offset1,sm = 0;
-uint32_t pretime[8] = {0,0,0,0,0,0,0,0};
+volatile uint32_t pretime[8] = {0,0,0,0,0,0,0,0};
 uint32_t data;
 
 //ボールセンサーの初期化
 void BallSetup(){
-    spin_lock_unsafe_blocking(lock);
-    spin_unlock_unsafe(lock);
-
     gpio_init(Sensorpin0); gpio_init(Sensorpin1);
     gpio_init(Sensorpin2); gpio_init(Sensorpin3);
     gpio_init(Sensorpin4); gpio_init(Sensorpin5);
@@ -33,17 +30,27 @@ void BallSetup(){
     gpio_set_dir(Sensorpin10,GPIO_IN); gpio_set_dir(Sensorpin11,GPIO_IN);
     gpio_set_dir(Sensorpin12,GPIO_IN); gpio_set_dir(Sensorpin13,GPIO_IN);
     gpio_set_dir(Sensorpin14,GPIO_IN); gpio_set_dir(Sensorpin15,GPIO_IN);
+    gpio_pull_up(Sensorpin0);gpio_pull_up(Sensorpin1);
+    gpio_pull_up(Sensorpin2);gpio_pull_up(Sensorpin3);
+    gpio_pull_up(Sensorpin4);gpio_pull_up(Sensorpin5);
+    gpio_pull_up(Sensorpin6);gpio_pull_up(Sensorpin7);
+    gpio_pull_up(Sensorpin8);gpio_pull_up(Sensorpin9);
+    gpio_pull_up(Sensorpin10);gpio_pull_up(Sensorpin11);
+    gpio_pull_up(Sensorpin12);gpio_pull_up(Sensorpin13);
+    gpio_pull_up(Sensorpin14);gpio_pull_up(Sensorpin15);
     
     //以下Sensorpin0～7 (割り込みかSIOで処理) ← 今は割り込みで処理
     //割り込みの初期設定
-    gpio_set_irq_enabled_with_callback(Sensorpin0,GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE,true,&BallSensorFallOrRise);
-    gpio_set_irq_enabled_with_callback(Sensorpin1,GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE,true,&BallSensorFallOrRise);
-    gpio_set_irq_enabled_with_callback(Sensorpin2,GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE,true,&BallSensorFallOrRise);
-    gpio_set_irq_enabled_with_callback(Sensorpin3,GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE,true,&BallSensorFallOrRise);
-    gpio_set_irq_enabled_with_callback(Sensorpin4,GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE,true,&BallSensorFallOrRise);
-    gpio_set_irq_enabled_with_callback(Sensorpin5,GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE,true,&BallSensorFallOrRise);
-    gpio_set_irq_enabled_with_callback(Sensorpin6,GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE,true,&BallSensorFallOrRise);
-    gpio_set_irq_enabled_with_callback(Sensorpin7,GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE,true,&BallSensorFallOrRise);
+    gpio_set_irq_callback(&BallSensorFallOrRise);
+    irq_set_enabled(IO_IRQ_BANK0, true);
+    gpio_set_irq_enabled(Sensorpin0,GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE,true);
+    gpio_set_irq_enabled(Sensorpin1,GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE,true);
+    gpio_set_irq_enabled(Sensorpin2,GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE,true);
+    gpio_set_irq_enabled(Sensorpin3,GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE,true);
+    gpio_set_irq_enabled(Sensorpin4,GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE,true);
+    gpio_set_irq_enabled(Sensorpin5,GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE,true);
+    gpio_set_irq_enabled(Sensorpin6,GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE,true);
+    gpio_set_irq_enabled(Sensorpin7,GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE,true);
 
     //以下Sensorpin8～15 (pioで処理)
     //pin_monitoringという名のプログラムをPIOの命令メモリに配置する
@@ -59,31 +66,11 @@ void BallSetup(){
     PIOPinMonitoringInit(pio1,1,offset1,Sensorpin13);
     PIOPinMonitoringInit(pio1,2,offset1,Sensorpin14);
     PIOPinMonitoringInit(pio1,3,offset1,Sensorpin15);
-
-    sleep_ms(1);
-
-    for (int sm = 0;sm <= 3;sm++) pio_sm_put_blocking(pio0,sm,0xFFFFFFFF);
-    for (int sm = 0;sm <= 3;sm++) pio_sm_put_blocking(pio1,sm,0xFFFFFFFF);
 }
 
 //ボールセンサー(赤外線センサー)を使う。
 void UseBallSensor(){
-    /*//以下Sensorpin0～7 (SIOで処理する場合)
-    for (int pin = 6;pin <= 13;pin++){
-        if(sio_hw->gpio_in & (1 << pin)){
-           if (pretime[pin] == 0) {
-                // 初めてHIGHになった時刻を記録
-                pretime[pin] = timer_hw->timerawl;
-            } 
-        }else{
-            if (pretime[pin] != 0) {
-                // LOWになった → HIGHの時間を計算
-                pulse[pin] = timer_hw->timerawl - pretime[pin]; // [us]
-                pretime[pin] = 0; // リセットして次のHIGHに備える
-            }
-        }
-    }
-    */
+    
     //以下Sensorpin8～15 (pioで処理)
     for(int sm = 0;sm <= 3;sm++){
         //pioのRX FIFOに何かがあるときだけ処理を行う。
@@ -94,7 +81,12 @@ void UseBallSensor(){
             pio_sm_put_blocking(pio0,sm,0xFFFFFFFF);
             //pulse[μs]の計算。経過時間は0xFFFFFFFFからの引き算であらわされ、
             //1減るごとに40[ns] = 0.04[μs]経過していることを表す
-            pulse[8 + sm] = (int)((0xFFFFFFFF - data) * 0.04);
+            if((float)(0xFFFFFFFF - data) * 0.04 > 2000){
+                //タイムアウト
+                pulse[8 + sm] = 0;
+            }else{
+                pulse[8 + sm] = (uint16_t)((float)(0xFFFFFFFF - data) * 0.04);
+            }
         }
     }
     for(int sm = 0;sm <= 3;sm++){
@@ -105,7 +97,12 @@ void UseBallSensor(){
             pio_sm_put_blocking(pio1,sm,0xFFFFFFFF);
             //pulse[μs]の計算。経過時間は0xFFFFFFFFからの引き算であらわされ、
             //1減るごとに40[ns] = 0.04[μs]経過していることを表す
-            pulse[12 + sm] = (int)((0xFFFFFFFF - data) * 0.04);
+            if((float)(0xFFFFFFFF - data) * 0.04 > 2000){
+                //タイムアウト
+                pulse[12 + sm] = 0;
+            }else{
+                pulse[12 + sm] = (uint16_t)((float)(0xFFFFFFFF - data) * 0.04);
+            }
         }
     }
 }
@@ -119,6 +116,9 @@ void UseBallSensor(){
 void PIOPinMonitoringInit(PIO pio, uint32_t sm, uint32_t offset,uint32_t pin){
     //配置したプログラムの初期設定を取得する
     pio_sm_config c = pin_monitoring_program_get_default_config(offset);
+    // PIOがこのピンを制御するように強制設定
+    pio_gpio_init(pio, pin);
+    pio_sm_set_consecutive_pindirs(pio, sm, pin, 1, false);
     //FrontPin～FrontPin+3 のピンをin pins命令の対象に設定
     sm_config_set_in_pins(&c,pin);
     //PIOのステートマシンの動作速度を設定(この場合は最速)
@@ -127,6 +127,8 @@ void PIOPinMonitoringInit(PIO pio, uint32_t sm, uint32_t offset,uint32_t pin){
     pio_sm_init(pio, sm, offset, &c);
     //PIOのステートマシンを有効化
     pio_sm_set_enabled(pio, sm, true);
+
+    pio_sm_put_blocking(pio, sm, 0xFFFFFFFF);
 }
 
 //割り込み時に実行される関数
@@ -134,19 +136,23 @@ void PIOPinMonitoringInit(PIO pio, uint32_t sm, uint32_t offset,uint32_t pin){
 //gpio : 割り込みが起きたgpio(6～13)
 //events : 割り込みの要因(GPIO_IRQ_EDGE_FALLかGPIO_IRQ_EDGE_RISE)
 void BallSensorFallOrRise(uint gpio, uint32_t events){
-    if(events == GPIO_IRQ_EDGE_FALL){
+    if (gpio < 6 || gpio > 13) return;
+
+    uint32_t now = timer_hw->timerawl;
+
+    if(events & GPIO_IRQ_EDGE_FALL){
         //HIGHからLOWの処理
-        spin_lock_unsafe_blocking(lock);
-        if(timer_hw->timerawl - pretime[gpio - 6] > 65535){
-            //オーバーフローを防止する
-            pulse[gpio - 6] = 65535;
+        if(now - pretime[gpio - 6] > 2000){
+            //オーバーフローを防止する & タイムアウト(2ミリ秒以上)
+            pulse[gpio - 6] = 0;
         }else{
-            pulse[gpio - 6] = timer_hw->timerawl - pretime[gpio - 6];
+            pulse[gpio - 6] = now - pretime[gpio -6];
         }
-        spin_unlock_unsafe(lock);
-    }else{
+    }
+    
+    if(events & GPIO_IRQ_EDGE_RISE){
         //LOWからHIGHの処理
-        pretime[gpio - 6] = timer_hw->timerawl;
+        pretime[gpio - 6] = now;
     } 
 }
 
