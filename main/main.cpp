@@ -13,9 +13,8 @@ int main()
     stdio_init_all();
     BallSetup();
 
-    //I2CSetup();
-    //gpio_init(Sensorpin0);
-    //gpio_set_dir(Sensorpin0,GPIO_IN);
+    I2CSetup();
+    
     while(1){
         int preTime = timer_hw->timerawl;
         while(timer_hw->timerawl - 100000 < preTime){

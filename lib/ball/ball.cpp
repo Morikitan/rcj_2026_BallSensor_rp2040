@@ -4,12 +4,13 @@
 #include "hardware/gpio.h"
 #include "stdio.h"
 #include "hardware/pio.h"
+#include "../communication/communication.hpp"
 #include "pin_monitoring.pio.h"
 #include "pico/multicore.h"
 #include "pico/sync.h"
 
 uint32_t offset0,offset1,sm = 0;
-volatile uint32_t pretime[8] = {0,0,0,0,0,0,0,0};
+volatile uint32_t pretime[10] = {0,0,0,0,0,0,0,0,0,0};
 uint32_t data;
 
 //ボールセンサーの初期化
@@ -51,6 +52,8 @@ void BallSetup(){
     gpio_set_irq_enabled(Sensorpin5,GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE,true);
     gpio_set_irq_enabled(Sensorpin6,GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE,true);
     gpio_set_irq_enabled(Sensorpin7,GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE,true);
+    gpio_set_irq_enabled(Sensorpin8,GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE,true);
+    gpio_set_irq_enabled(Sensorpin9,GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE,true);
 
     //以下Sensorpin8～15 (pioで処理)
     //pin_monitoringという名のプログラムをPIOの命令メモリに配置する
@@ -58,8 +61,6 @@ void BallSetup(){
     offset1 = pio_add_program(pio1,&pin_monitoring_program);
 
     //pioの各ステートマシンの初期設定
-    PIOPinMonitoringInit(pio0,0,offset0,Sensorpin8);
-    PIOPinMonitoringInit(pio0,1,offset0,Sensorpin9);
     PIOPinMonitoringInit(pio0,2,offset0,Sensorpin10);
     PIOPinMonitoringInit(pio0,3,offset0,Sensorpin11);
     PIOPinMonitoringInit(pio1,0,offset1,Sensorpin12);
@@ -68,24 +69,33 @@ void BallSetup(){
     PIOPinMonitoringInit(pio1,3,offset1,Sensorpin15);
 }
 
+#define TimeOut 100000u
+
 //ボールセンサー(赤外線センサー)を使う。
 void UseBallSensor(){
-    
-    //以下Sensorpin8～15 (pioで処理)
-    for(int sm = 0;sm <= 3;sm++){
+    for(int i = 0;i <= 7;i++){
+        if(pulse[i] != 0){
+            if(timer_hw->timerawl - pretime[i] > 2000){
+                //タイムアウト
+                pulse[i] = 0;
+            }
+        }
+    }
+    //以下Sensorpin10～15 (pioで処理)
+    for(int sm = 2;sm <= 3;sm++){
         //pioのRX FIFOに何かがあるときだけ処理を行う。
         if (!pio_sm_is_rx_fifo_empty(pio0, sm)) {
             //RX FIFOからデータを受け取る。
             data = pio_sm_get(pio0,sm);
             //ステートマシンに時間計測用の基準の数値を送る
-            pio_sm_put_blocking(pio0,sm,0xFFFFFFFF);
+            pio_sm_put_blocking(pio0,sm,TimeOut);
             //pulse[μs]の計算。経過時間は0xFFFFFFFFからの引き算であらわされ、
             //1減るごとに40[ns] = 0.04[μs]経過していることを表す
-            if((float)(0xFFFFFFFF - data) * 0.04 > 2000){
+            if((float)(TimeOut - data) * 0.04 > 2000){
                 //タイムアウト
                 pulse[8 + sm] = 0;
             }else{
-                pulse[8 + sm] = (uint16_t)((float)(0xFFFFFFFF - data) * 0.04);
+                pulse[8 + sm] = (uint16_t)((float)(TimeOut - data) * 0.04);
             }
         }
     }
@@ -94,14 +104,14 @@ void UseBallSensor(){
         if (!pio_sm_is_rx_fifo_empty(pio1, sm)) {
             data = pio_sm_get(pio1,sm);
             //ステートマシンに時間計測用の基準の数値を送る
-            pio_sm_put_blocking(pio1,sm,0xFFFFFFFF);
+            pio_sm_put_blocking(pio1,sm,100000u);
             //pulse[μs]の計算。経過時間は0xFFFFFFFFからの引き算であらわされ、
             //1減るごとに40[ns] = 0.04[μs]経過していることを表す
-            if((float)(0xFFFFFFFF - data) * 0.04 > 2000){
+            if((float)(TimeOut - data) * 0.04 > 2000){
                 //タイムアウト
                 pulse[12 + sm] = 0;
             }else{
-                pulse[12 + sm] = (uint16_t)((float)(0xFFFFFFFF - data) * 0.04);
+                pulse[12 + sm] = (uint16_t)((float)(TimeOut - data) * 0.04);
             }
         }
     }
@@ -128,7 +138,7 @@ void PIOPinMonitoringInit(PIO pio, uint32_t sm, uint32_t offset,uint32_t pin){
     //PIOのステートマシンを有効化
     pio_sm_set_enabled(pio, sm, true);
 
-    pio_sm_put_blocking(pio, sm, 0xFFFFFFFF);
+    pio_sm_put_blocking(pio, sm, TimeOut);
 }
 
 //割り込み時に実行される関数
@@ -136,7 +146,10 @@ void PIOPinMonitoringInit(PIO pio, uint32_t sm, uint32_t offset,uint32_t pin){
 //gpio : 割り込みが起きたgpio(6～13)
 //events : 割り込みの要因(GPIO_IRQ_EDGE_FALLかGPIO_IRQ_EDGE_RISE)
 void BallSensorFallOrRise(uint gpio, uint32_t events){
-    if (gpio < 6 || gpio > 13) return;
+    if(gpio == SDApin){
+        Callback();
+    }
+    if (gpio < 6 || gpio > 15) return;
 
     uint32_t now = timer_hw->timerawl;
 
@@ -146,7 +159,7 @@ void BallSensorFallOrRise(uint gpio, uint32_t events){
             //オーバーフローを防止する & タイムアウト(2ミリ秒以上)
             pulse[gpio - 6] = 0;
         }else{
-            pulse[gpio - 6] = now - pretime[gpio -6];
+            pulse[gpio - 6] = now - pretime[gpio - 6];
         }
     }
     
