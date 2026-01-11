@@ -146,9 +146,6 @@ void PIOPinMonitoringInit(PIO pio, uint32_t sm, uint32_t offset,uint32_t pin){
 //gpio : 割り込みが起きたgpio(6～13)
 //events : 割り込みの要因(GPIO_IRQ_EDGE_FALLかGPIO_IRQ_EDGE_RISE)
 void BallSensorFallOrRise(uint gpio, uint32_t events){
-    if(gpio == SDApin){
-        Callback();
-    }
     if (gpio < 6 || gpio > 15) return;
 
     uint32_t now = timer_hw->timerawl;

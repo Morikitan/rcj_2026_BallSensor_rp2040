@@ -19,6 +19,7 @@ int main()
         int preTime = timer_hw->timerawl;
         while(timer_hw->timerawl - 100000 < preTime){
             UseBallSensor();
+            Callback();
         }
         //printf("end\n");
          printf("%u %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u\n",

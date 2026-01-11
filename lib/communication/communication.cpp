@@ -7,6 +7,7 @@
 #include "picoPioUart.pio.h"
 #include "pico/multicore.h"
 #include "pico/sync.h"
+#include <stdio.h>
 
 uint8_t buffer[32];
 
@@ -34,15 +35,21 @@ void I2CSetup(){
     offset2 = pio_add_program(pio, &picoPioUartTx_program);
     picoPioUartTx_program_init(pio, sm_tx, offset2, (uint)(SCLpin), SERIAL_BAUD);
 
-    gpio_set_irq_enabled(SDApin,GPIO_IRQ_EDGE_FALL,true);
+    // gpio_set_irq_enabled(SDApin,GPIO_IRQ_EDGE_FALL,true);
 }
 
 
 void Callback(){
-    picoPioUartRx_program_getc(true,&parity_check);
-    for(int i = 0;i <= 31;i++){
-        picoPioUartTx_program_putc(buffer[i],true);
-    }
+    if(!pio_sm_is_rx_fifo_empty(pio, sm_rx)){
+        printf("北");
+        picoPioUartRx_program_getc(true,&parity_check);
+        for(int i = 0;i <= 15;i++){
+            picoPioUartTx_program_putc((uint8_t)(pulse[i] >> 8),true);
+            sleep_ms(10);
+            picoPioUartTx_program_putc((uint8_t)(pulse[i] && 0xFF),true);
+            sleep_ms(10);
+        }
+    }   
 }
 //UART(シリアル通信)で送信する関数
 //
